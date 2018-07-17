@@ -1,11 +1,13 @@
 /*
   [p,(duty比),(cycle)]を入力
-  温湿度表示: 'a'を入力
   LEDの点滅を止める場合：'e'を入力
   10秒毎に温湿度，土壌湿度の値を取得（割り込み処理）
 */
 
 #include <DHT.h>
+#include <MsTimer2.h>
+#include <string.h>
+using namespace std;
 #define DHTTYPE DHT22
 #define DHT22_PIN 7 //温湿度
 #define Soil_PIN1 3
@@ -15,11 +17,12 @@
 #define LED_PIN1 10
 DHT dht(DHT22_PIN, DHTTYPE);
 
-void flash() { 
+void flash() { //割り込み時に処理される関数
   char humidity[10];
   char temperature[10];
 
   float h  = dht.readHumidity();
+  // 温度を取得すると同時に華氏を摂氏に変換
   float t  = 5.0/9.0*(dht.readTemperature(true)-32.0);
 
   // 小数hを6文字(小数点以下2文字)の文字列に変換
@@ -46,22 +49,23 @@ void flash() {
 void setup() {
   pinMode(DHT22_PIN, INPUT);
   pinMode(LED_PIN1, OUTPUT);
+  MsTimer2::set(10000, flash); //10秒毎の割り込み，その時に処理する関数flash()を呼び出し
+  MsTimer2::start(); //タイマー割り込み開始
   Serial.begin(9600);
 }
 
 void loop()
 { 
+  //[a or b , duty , cycle]
   if(Serial.available() > 0){ 
           float duty = 0;
           float cycle = 0;
           float LED_ON = 0;
           float LED_OFF = 0;
-          char LED_status;
+          char LED_END;
           String temp = Serial.readString();
           String temp2[3] = {"\0"}; //分割された文字列をか格納する配列
-           if(temp[0] == 'a'){
-            flash();
-           }
+          Serial.println(temp[0]);
            if(temp[0] == 'p'){
               //分割数 = 分割処理(文字列,区切り文字,配列)
               int index = split(temp, ',', temp2);
@@ -78,12 +82,9 @@ void loop()
 
               while(1){
                 if(Serial.available()){
-                    LED_status = Serial.read();
-                    Serial.println(LED_status);
-                      if(LED_status == 'a'){ //点滅中にaを入力
-                        flash();
-                      }
-                      if(LED_status == 'e'){ //点滅中にeを入力
+                    LED_END = Serial.read();
+                    Serial.println(LED_END);
+                      if(LED_END == 'e'){ //点滅中にeを入力
                         break; //無限ループ終了
                       }
                 }
